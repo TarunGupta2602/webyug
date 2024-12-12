@@ -1,11 +1,14 @@
 "use client";
-// pages/index.js
+
 import { useState } from "react";
 import { products } from "./data/products";
+import { loadStripe } from "@stripe/stripe-js";
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
 const Home = () => {
   const [cart, setCart] = useState([]);
-  const [isCartOpen, setIsCartOpen] = useState(false); // To toggle the cart view
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
   const addToCart = (product) => {
     setCart((prevCart) => {
@@ -38,54 +41,79 @@ const Home = () => {
     );
   };
 
-  const handleCheckout = () => {
-    const total = cart.reduce((acc, item) => acc + (item.price / 100) * item.quantity, 0);
-    alert(`Proceeding to checkout with ${cart.length} item(s) in the cart. Total: ₹${total.toFixed(2)}`);
+  const handleCheckout = async () => {
+    if (cart.length === 0) {
+      alert("Your cart is empty!");
+      return;
+    }
+
+    const stripe = await stripePromise;
+
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ cart }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to create checkout session.");
+      }
+
+      const { sessionId, error } = await res.json();
+
+      if (error) {
+        throw new Error(error);
+      }
+
+      const { error: stripeError } = await stripe.redirectToCheckout({ sessionId });
+      if (stripeError) {
+        throw new Error(stripeError.message);
+      }
+    } catch (error) {
+      alert(`Error: ${error.message}`);
+    }
   };
 
   return (
     <div className="max-w-7xl mx-auto p-6 relative">
       <h1 className="text-4xl font-semibold text-center mb-8">Product Store</h1>
 
-      {/* Cart Icon at the Top */}
       <div className="fixed top-4 right-4 flex items-center space-x-4 z-50">
-  <button
-    onClick={() => setIsCartOpen(!isCartOpen)}
-    className="relative text-2xl font-semibold bg-blue-600 text-white py-2 px-4 rounded-full hover:bg-blue-700 transition duration-200"
-  >
-    🛒
-    {cart.length > 0 && (
-      <span className="absolute top-0 right-0 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-        {cart.length}
-      </span>
-    )}
-  </button>
-</div>
+        <button
+          onClick={() => setIsCartOpen(!isCartOpen)}
+          className="relative text-2xl font-semibold bg-blue-600 text-white py-2 px-4 rounded-full hover:bg-blue-700 transition duration-200"
+        >
+          🛒
+          {cart.length > 0 && (
+            <span className="absolute top-0 right-0 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+              {cart.length}
+            </span>
+          )}
+        </button>
+      </div>
 
-
-      {/* Products List */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 mb-8 gap-9 mt-12">
         {products.map((product) => (
           <div
             key={product.id}
             className="bg-white shadow-lg rounded-lg overflow-hidden transform hover:scale-105 transition duration-300 hover:shadow-xl"
           >
-            {/* Image container */}
             <div className="w-full h-72 bg-gray-200 relative">
               <img
                 src={product.imageUrl}
                 alt={product.name}
-                className="w-full h-full object-cover rounded-t-lg" // Cover the image and make sure it fills the container
+                className="w-full h-full object-cover rounded-t-lg"
               />
             </div>
 
-            {/* Product Information */}
             <div className="p-4">
               <h2 className="text-xl font-semibold text-gray-800">{product.name}</h2>
               <p className="text-gray-600 mt-2 text-sm">{product.description}</p>
               <p className="text-xl font-semibold text-gray-900 mt-4">₹{(product.price / 100).toFixed(2)}</p>
 
-              {/* Add to Cart Button */}
               <button
                 onClick={() => addToCart(product)}
                 className="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-200"
@@ -97,7 +125,6 @@ const Home = () => {
         ))}
       </div>
 
-      {/* Cart Modal/Sidebar */}
       {isCartOpen && (
         <div className="fixed top-0 right-0 bg-white w-96 h-full shadow-lg p-6 overflow-y-auto z-50 transition-transform transform translate-x-0">
           <div className="flex justify-between items-center mb-6">
@@ -118,7 +145,6 @@ const Home = () => {
                   className="flex justify-between items-center bg-gray-100 p-4 rounded-lg shadow-sm"
                 >
                   <div className="flex items-center">
-                    {/* Product Image */}
                     <img
                       src={item.imageUrl}
                       alt={item.name}
