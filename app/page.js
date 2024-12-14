@@ -1,8 +1,7 @@
-"use client";
-
 import { useState } from "react";
 import { products } from "./data/products";
 import { loadStripe } from "@stripe/stripe-js";
+import Image from "next/image"; // Importing Image from Next.js for optimized image loading
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
@@ -34,7 +33,12 @@ const Home = () => {
         item.id === productId
           ? {
               ...item,
-              quantity: action === "increase" ? item.quantity + 1 : item.quantity - 1,
+              quantity:
+                action === "increase"
+                  ? item.quantity + 1
+                  : item.quantity > 1
+                  ? item.quantity - 1
+                  : 1, // Prevent quantity from going below 1
             }
           : item
       )
@@ -102,9 +106,11 @@ const Home = () => {
             className="bg-white shadow-lg rounded-lg overflow-hidden transform hover:scale-105 transition duration-300 hover:shadow-xl"
           >
             <div className="w-full h-72 bg-gray-200 relative">
-              <img
+              <Image
                 src={product.imageUrl}
                 alt={product.name}
+                width={300} // Provide image width
+                height={300} // Provide image height
                 className="w-full h-full object-cover rounded-t-lg"
               />
             </div>
@@ -145,10 +151,12 @@ const Home = () => {
                   className="flex justify-between items-center bg-gray-100 p-4 rounded-lg shadow-sm"
                 >
                   <div className="flex items-center">
-                    <img
+                    <Image
                       src={item.imageUrl}
                       alt={item.name}
-                      className="w-16 h-16 object-cover rounded-lg mr-4"
+                      width={64} // Set width for image
+                      height={64} // Set height for image
+                      className="object-cover rounded-lg mr-4"
                     />
                     <h3 className="text-xl font-semibold text-black">{item.name}</h3>
                     <button
